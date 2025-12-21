@@ -2976,15 +2976,84 @@
                                     Grid.Column="1"
                                     Text="Wind speed, in m/s" />
                             </Grid>
-
-                            
-
                             <Grid Margin="0,10,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="250" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                    </Grid.RowDefinitions>
+                                <TextBox
+                                    Grid.Row="0"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    IsReadOnly="True"
+                                    util:SelectTextOnFocus.Active="True"
+                                    Text="$$SYSTEM_NAME$$" />
+                                <TextBlock
+                                    Grid.Row="0"
+                                    Grid.Column="1"
+                                    Text="The name of the computer" />
+
+                                <TextBox
+                                    Grid.Row="1"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    IsReadOnly="True"
+                                    util:SelectTextOnFocus.Active="True"
+                                    Text="$$USER_NAME$$" />
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    Text="The name of the user running N.I.N.A." />
+
+                                <TextBox
+                                    Grid.Row="2"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    IsReadOnly="True"
+                                    util:SelectTextOnFocus.Active="True"
+                                    Text="$$NINA_VERSION$$" />
+                                <TextBlock
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    Text="The version of N.I.N.A." />
+
+                                <TextBox
+                                    Grid.Row="3"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    IsReadOnly="True"
+                                    util:SelectTextOnFocus.Active="True"
+                                    Text="$$GS_VERSION$$" />
+                                <TextBlock
+                                    Grid.Row="3"
+                                    Grid.Column="1"
+                                    Text="The version of Ground Station" />
+                            </Grid>
+                          <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="250" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition />
                                     <RowDefinition />
                                     <RowDefinition />
                                     <RowDefinition />
@@ -2998,7 +3067,7 @@
                                     Grid.Column="0"
                                     Margin="0,10,0,5"
                                     FontSize="16"
-                                    Text="Image metrics"
+                                    Text="Image and Guiding info"
                                     TextDecorations="Underline" />
 
                                 <TextBox
@@ -3085,68 +3154,6 @@
                                     Grid.Column="1"
                                     Text="Guiding RMS in right ascension, in arcseconds." />
 
-                            </Grid>
-                            <Grid Margin="0,10,0,0">
-
-                                <TextBox
-                                    Grid.Row="1"
-                                    Grid.Column="0"
-                                    VerticalAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    IsReadOnly="True"
-                                    util:SelectTextOnFocus.Active="True"
-                                    Text="$$SYSTEM_NAME$$" />
-                                <TextBlock
-                                    Grid.Row="1"
-                                    Grid.Column="1"
-                                    Text="The name of the computer" />
-
-                                <TextBox
-                                    Grid.Row="2"
-                                    Grid.Column="0"
-                                    VerticalAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    IsReadOnly="True"
-                                    util:SelectTextOnFocus.Active="True"
-                                    Text="$$USER_NAME$$" />
-                                <TextBlock
-                                    Grid.Row="2"
-                                    Grid.Column="1"
-                                    Text="The name of the user running N.I.N.A." />
-
-                                <TextBox
-                                    Grid.Row="3"
-                                    Grid.Column="0"
-                                    VerticalAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    IsReadOnly="True"
-                                    util:SelectTextOnFocus.Active="True"
-                                    Text="$$NINA_VERSION$$" />
-                                <TextBlock
-                                    Grid.Row="3"
-                                    Grid.Column="1"
-                                    Text="The version of N.I.N.A." />
-
-                                <TextBox
-                                    Grid.Row="4"
-                                    Grid.Column="0"
-                                    VerticalAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    IsReadOnly="True"
-                                    util:SelectTextOnFocus.Active="True"
-                                    Text="$$GS_VERSION$$" />
-                                <TextBlock
-                                    Grid.Row="4"
-                                    Grid.Column="1"
-                                    Text="The version of Ground Station" />
                             </Grid>
                         </StackPanel>
                     </GroupBox>
