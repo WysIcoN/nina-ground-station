@@ -18,6 +18,15 @@ The provided instructions and triggers can be broken down in to two general cate
 
 Information about your session or any failures may be inserted into the messages by the use of tokens. These tokens are described on the **Message Token Help** tab.
 
+New image- and guiding-related tokens have been added:
+
+- `$$IMAGE_HFR$$` — image HFR (half flux radius), in arcseconds
+- `$$IMAGE_FWHM$$` — image FWHM, in arcseconds
+- `$$IMAGE_ECCENTRICITY$$` — star eccentricity metric (unitless)
+- `$$GUIDING_RMS_TOTAL$$` — guiding RMS (total), in arcseconds
+- `$$GUIDING_RMS_DEC$$` — guiding RMS in declination, in arcseconds
+- `$$GUIDING_RMS_RA$$` — guiding RMS in right ascension, in arcseconds
+
 ## Getting help
 
 Help for this plugin may be found in the **#plugin-discussions** channel on the NINA project [Discord chat server](https://discord.com/invite/rWRbVbw) or by filing an issue report at this plugin's [Github repository](https://github.com/daleghent/nina-plugins/issues).
