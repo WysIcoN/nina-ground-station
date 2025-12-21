@@ -3082,7 +3082,7 @@
                                 <TextBlock
                                     Grid.Row="1"
                                     Grid.Column="1"
-                                    Text="Image HFR (half flux radius), in arcseconds." />
+                                    Text="Image HFR (half flux radius), in pixels." />
 
                                 <TextBox
                                     Grid.Row="2"
