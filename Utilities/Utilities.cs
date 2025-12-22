@@ -16,7 +16,6 @@ using NINA.Core.Utility;
 using NINA.Sequencer;
 using NINA.Sequencer.Container;
 using System;
-using System.Reflection;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -291,88 +290,28 @@ namespace DaleGhent.NINA.GroundStation.Utilities {
                 text = pattern.Replace(text, DoUrlEncode(urlEncode, "----"));
             }
 
-            // Image metrics (HFR, Eccentricity, FWHM) - try StarDetectionAnalysis and ImageMetaData via reflection
+            // Image metrics (HFR, Eccentricity, FWHM) and Guiding RMS values
             try {
                 var imageData = DaleGhent.NINA.GroundStation.Images.ImageService.Instance.Image;
+                if (imageData != null) {
+                    var metricsExtractor = new DaleGhent.NINA.GroundStation.Images.ImageMetricsExtractor(imageData);
 
-                double? TryGetNumeric(string propName) {
-                    if (imageData?.StarDetectionAnalysis != null) {
-                        var sda = imageData.StarDetectionAnalysis;
-                        var pi = sda.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                        if (pi != null) {
-                            var val = pi.GetValue(sda);
-                            if (val is double d) return d;
-                            if (val is float f) return (double)f;
-                            if (val is int i) return (double)i;
-                            if (val is decimal m) return (double)m;
-                        }
-                    }
+                    string FormatOrDash(double? v) => v.HasValue && !double.IsNaN(v.Value)
+                        ? DoUrlEncode(urlEncode, v.Value.ToString("F2", culture))
+                        : DoUrlEncode(urlEncode, "--");
 
-                    if (imageData?.ImageMetaData != null) {
-                        var meta = imageData.ImageMetaData;
-                        var pi = meta.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                        if (pi != null) {
-                            var val = pi.GetValue(meta);
-                            if (val is double d) return d;
-                            if (val is float f) return (double)f;
-                            if (val is int i) return (double)i;
-                            if (val is decimal m) return (double)m;
-                        }
+                    // Image metric tokens
+                    text = text.Replace("$$IMAGE_HFR$$", FormatOrDash(metricsExtractor.GetHFR()));
+                    text = text.Replace("$$IMAGE_ECCENTRICITY$$", FormatOrDash(metricsExtractor.GetEccentricity()));
+                    text = text.Replace("$$IMAGE_FWHM$$", FormatOrDash(metricsExtractor.GetFWHM()));
 
-                        // search one level deep in metadata properties (plugin containers)
-                        foreach (var p in meta.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
-                            try {
-                                var obj = p.GetValue(meta);
-                                if (obj == null) continue;
-                                var pi2 = obj.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-                                if (pi2 != null) {
-                                    var val = pi2.GetValue(obj);
-                                    if (val is double d) return d;
-                                    if (val is float f) return (double)f;
-                                    if (val is int i) return (double)i;
-                                    if (val is decimal m) return (double)m;
-                                }
-                            } catch { /* swallow and continue */ }
-                        }
-                    }
-
-                    return null;
+                    // Guiding RMS tokens
+                    text = text.Replace("$$GUIDING_RMS_TOTAL$$", FormatOrDash(metricsExtractor.GetGuidingRmsTotal()));
+                    text = text.Replace("$$GUIDING_RMS_DEC$$", FormatOrDash(metricsExtractor.GetGuidingRmsDec()));
+                    text = text.Replace("$$GUIDING_RMS_RA$$", FormatOrDash(metricsExtractor.GetGuidingRmsRa()));
                 }
-
-                var hfr = TryGetNumeric("HFR");
-                var ecc = TryGetNumeric("Eccentricity");
-                var fwhm = TryGetNumeric("FWHM");
-
-                double? TryGetAnyNumeric(params string[] names) {
-                    foreach (var n in names) {
-                        var v = TryGetNumeric(n);
-                        if (v.HasValue) return v;
-                    }
-
-                    return null;
-                }
-
-                // try common guiding RMS property name variants (plugin authors may differ)
-                var guidingTotal = TryGetAnyNumeric("GuidingRms", "GuidingRMS", "GuidingRmsTotal", "GuidingRms_Total", "GuidingRmsTot", "GuidingRmsTotal", "GuidingRMS_Tot");
-                var guidingDec = TryGetAnyNumeric("GuidingRmsDec", "GuidingRMSDec", "GuidingDecRms", "GuidingRms_Dec", "GuidingRmsDec");
-                var guidingRa = TryGetAnyNumeric("GuidingRmsRa", "GuidingRMSRa", "GuidingRaRms", "GuidingRms_RA", "GuidingRmsRa");
-
-                string FormatOrDash(double? v) => v.HasValue && !double.IsNaN(v.Value)
-                    ? DoUrlEncode(urlEncode, v.Value.ToString("F2", culture))
-                    : DoUrlEncode(urlEncode, "--");
-
-                // Image metric tokens
-                text = text.Replace("$$IMAGE_HFR$$", FormatOrDash(hfr));
-                text = text.Replace("$$IMAGE_ECCENTRICITY$$", FormatOrDash(ecc));
-                text = text.Replace("$$IMAGE_FWHM$$", FormatOrDash(fwhm));
-
-                // Guiding RMS tokens
-                text = text.Replace("$$GUIDING_RMS_TOTAL$$", FormatOrDash(guidingTotal));
-                text = text.Replace("$$GUIDING_RMS_DEC$$", FormatOrDash(guidingDec));
-                text = text.Replace("$$GUIDING_RMS_RA$$", FormatOrDash(guidingRa));
-
             } catch {
-                // ignore any reflection errors and leave tokens untouched
+                // ignore any errors and leave tokens untouched
             }
 
             return text;

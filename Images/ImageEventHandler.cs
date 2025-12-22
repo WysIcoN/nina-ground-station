@@ -25,6 +25,7 @@ namespace DaleGhent.NINA.GroundStation.Images {
         private readonly IProfileService profileService = profileService;
         private readonly IImageSaveMediator imageSaveMediator = imageSaveMediator;
         private readonly IImageDataFactory imageDataFactory = imageDataFactory;
+        private ImageData currentImageData;
 
         public void Start() {
             Stop();
@@ -33,71 +34,36 @@ namespace DaleGhent.NINA.GroundStation.Images {
 
         public void Stop() {
             imageSaveMediator.ImageSaved -= ImageSaveMeditator_ImageSaved;
-            ImageService.Instance.Image.Bitmap.Dispose();
+            currentImageData?.Bitmap?.Dispose();
         }
 
         private async void ImageSaveMeditator_ImageSaved(object sender, ImageSavedEventArgs msg) {
-            var isBayered = false;
-            var bitDepth = (int)profileService.ActiveProfile.CameraSettings.BitDepth;
-            var rawConverter = profileService.ActiveProfile.CameraSettings.RawConverter;
-
-            var stretchFactor = profileService.ActiveProfile.ImageSettings.AutoStretchFactor;
-            var blackClipping = profileService.ActiveProfile.ImageSettings.BlackClipping;
-            var unlinkedStretch = profileService.ActiveProfile.ImageSettings.UnlinkedStretch;
-            var bayerPattern = msg.MetaData.Camera.SensorType;
-
-            if (bayerPattern > SensorType.Monochrome) {
-                isBayered = true;
-            }
-
-            var memoryStream = new MemoryStream();
-
             try {
+                var profile = profileService.ActiveProfile;
+                var isBayered = msg.MetaData.Camera.SensorType > SensorType.Monochrome;
+                var bitDepth = (int)profile.CameraSettings.BitDepth;
+                var rawConverter = profile.CameraSettings.RawConverter;
+
                 var imageData = await imageDataFactory.CreateFromFile(msg.PathToImage.LocalPath, bitDepth, isBayered, rawConverter);
                 var renderedImage = imageData.RenderImage();
 
-                if (isBayered && profileService.ActiveProfile.ImageSettings.DebayerImage) {
-                    renderedImage = renderedImage.Debayer(saveColorChannels: unlinkedStretch, bayerPattern: bayerPattern);
+                if (isBayered && profile.ImageSettings.DebayerImage) {
+                    renderedImage = renderedImage.Debayer(
+                        saveColorChannels: profile.ImageSettings.UnlinkedStretch,
+                        bayerPattern: msg.MetaData.Camera.SensorType);
                 }
 
-                renderedImage = await renderedImage.Stretch(stretchFactor, blackClipping, unlinkedStretch);
-                BitmapFrame bitmapFrame;
+                renderedImage = await renderedImage.Stretch(
+                    profile.ImageSettings.AutoStretchFactor,
+                    profile.ImageSettings.BlackClipping,
+                    profile.ImageSettings.UnlinkedStretch);
 
-                if (GroundStation.GroundStationConfig.ImageServiceImageScaling < 100) {
-                    var scaling = GroundStation.GroundStationConfig.ImageServiceImageScaling / 100d;
+                var bitmapFrame = CreateScaledBitmapFrame(renderedImage.Image);
+                var (contentType, fileExtension) = GetImageFormatInfo();
 
-                    var transform = new ScaleTransform(scaling, scaling);
-                    var scaledBitmap = new TransformedBitmap(renderedImage.Image, transform);
-                    bitmapFrame = BitmapFrame.Create(scaledBitmap);
-                } else {
-                    bitmapFrame = BitmapFrame.Create(renderedImage.Image);
-                }
-
-                string contentType = string.Empty;
-                string fileExtension = string.Empty;
-
-                switch ((ImageFormatEnum)GroundStation.GroundStationConfig.ImageServiceFormat) {
-                    case ImageFormatEnum.JPEG:
-                        var jpegBitmap = new JpegBitmapEncoder() {
-                            QualityLevel = GroundStation.GroundStationConfig.ImageServiceJpegQuality,
-                        };
-                        jpegBitmap.Frames.Add(BitmapFrame.Create(bitmapFrame));
-                        jpegBitmap.Save(memoryStream);
-                        contentType = "image/jpeg";
-                        fileExtension = "jpg";
-                        break;
-
-                    case ImageFormatEnum.PNG:
-                        var pngBitmap = new PngBitmapEncoder();
-                        pngBitmap.Frames.Add(bitmapFrame);
-                        pngBitmap.Save(memoryStream);
-                        contentType = "image/png";
-                        fileExtension = "png";
-                        break;
-                }
-
-                var ImageData = new ImageData() {
-                    Bitmap = new System.IO.MemoryStream(memoryStream.ToArray()),
+                using var encodedStream = EncodeImage(bitmapFrame, contentType);
+                currentImageData = new ImageData {
+                    Bitmap = new MemoryStream(encodedStream.ToArray()),
                     ImageMetaData = msg.MetaData,
                     ImageMimeType = contentType,
                     ImageFileExtension = fileExtension,
@@ -106,12 +72,48 @@ namespace DaleGhent.NINA.GroundStation.Images {
                     ImagePath = msg.PathToImage.LocalPath,
                 };
 
-                ImageService.Instance.Image = ImageData;
+                ImageService.Instance.Image = currentImageData;
             } catch (Exception ex) {
-                Logger.Error($"Exception: {ex.Message} {ex.StackTrace}");
-            } finally {
-                memoryStream.Dispose();
+                Logger.Error($"ImageEventHandler: Failed to process image: {ex.Message}\n{ex.StackTrace}");
             }
+        }
+
+        private BitmapFrame CreateScaledBitmapFrame(BitmapSource imageSource) {
+            var scaling = GroundStation.GroundStationConfig.ImageServiceImageScaling / 100d;
+            if (scaling < 1.0) {
+                var transform = new ScaleTransform(scaling, scaling);
+                var scaledBitmap = new TransformedBitmap(imageSource, transform);
+                return BitmapFrame.Create(scaledBitmap);
+            }
+
+            return BitmapFrame.Create(imageSource);
+        }
+
+        private static (string contentType, string fileExtension) GetImageFormatInfo() {
+            var format = (ImageFormatEnum)GroundStation.GroundStationConfig.ImageServiceFormat;
+            return format switch {
+                ImageFormatEnum.JPEG => ("image/jpeg", "jpg"),
+                ImageFormatEnum.PNG => ("image/png", "png"),
+                _ => ("image/jpeg", "jpg"),
+            };
+        }
+
+        private MemoryStream EncodeImage(BitmapFrame bitmapFrame, string contentType) {
+            var stream = new MemoryStream();
+            var encoder = contentType switch {
+                "image/jpeg" => (BitmapEncoder)new JpegBitmapEncoder {
+                    QualityLevel = GroundStation.GroundStationConfig.ImageServiceJpegQuality,
+                },
+                "image/png" => new PngBitmapEncoder(),
+                _ => new JpegBitmapEncoder {
+                    QualityLevel = GroundStation.GroundStationConfig.ImageServiceJpegQuality,
+                },
+            };
+
+            encoder.Frames.Add(bitmapFrame);
+            encoder.Save(stream);
+            stream.Position = 0;
+            return stream;
         }
     }
 }

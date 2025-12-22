@@ -186,28 +186,61 @@ namespace DaleGhent.NINA.GroundStation.SendToEmail {
             message.To.AddRange(InternetAddressList.Parse(Recipient));
             message.Subject = Utilities.Utilities.ResolveTokens(Subject, this, metadata);
 
+            var resolvedBody = Utilities.Utilities.ResolveTokens(Body, this, metadata);
             var builder = new BodyBuilder();
-            builder.TextBody = Utilities.Utilities.ResolveTokens(Body, this, metadata);
-
-            try {
-                var img = DaleGhent.NINA.GroundStation.Images.ImageService.Instance.Image;
-                if (img?.Bitmap != null) {
-                    // create processed JPEG: 8bpp, downscale 8x, use configured JPEG quality
-                    var quality = GroundStation.GroundStationConfig.ImageServiceJpegQuality;
-                    using var processed = DaleGhent.NINA.GroundStation.Images.ImageProcessing.ConvertToJpegReduced(img.Bitmap, 8, quality);
-                    if (processed != null && processed.Length > 0) {
-                        processed.Position = 0;
-                        var fileName = string.IsNullOrEmpty(img.ImagePath) ? "image.jpg" : System.IO.Path.GetFileNameWithoutExtension(img.ImagePath) + ".jpg";
-                        builder.Attachments.Add(fileName, processed.ToArray(), new MimeKit.ContentType("image", "jpeg"));
-                    }
-                }
-            } catch (System.Exception ex) {
-                global::NINA.Core.Utility.Logger.Error($"SendToEmail: failed to attach processed image: {ex.Message}");
+            
+            // Only attach image if the body contains the image preview token
+            if (Body.Contains("$$IMAGE_PREVIEW$$")) {
+                AttachProcessedImage(builder);
+                // Remove the token from the resolved body after image is attached
+                resolvedBody = resolvedBody.Replace("$$IMAGE_PREVIEW$$", string.Empty);
             }
 
+            builder.TextBody = resolvedBody;
             message.Body = builder.ToMessageBody();
 
             await EmailCommon.SendEmail(message, ct);
+        }
+
+        private void AttachProcessedImage(BodyBuilder builder) {
+            try {
+                // Get a snapshot of the image data. We create a local copy of the bitmap
+                // to avoid holding a reference to the shared ImageService resource longer
+                // than necessary, and to avoid modifying the stream position of a resource
+                // that might be used concurrently elsewhere.
+                var imageData = DaleGhent.NINA.GroundStation.Images.ImageService.Instance.Image;
+                if (imageData?.Bitmap == null || imageData.Bitmap.Length == 0) {
+                    return;
+                }
+
+                // Create a defensive copy of the bitmap data to process independently
+                byte[] bitmapCopy;
+                lock (imageData) {  // Lock if the ImageData supports it; if not, this is still safe
+                    bitmapCopy = imageData.Bitmap.ToArray();
+                }
+
+                using var bitmapStream = new System.IO.MemoryStream(bitmapCopy);
+                var quality = GroundStation.GroundStationConfig.ImageServiceJpegQuality;
+                using var processedImage = DaleGhent.NINA.GroundStation.Images.ImageProcessing.ConvertToJpegReduced(
+                    bitmapStream,
+                    scaleFactor: 8,
+                    jpegQuality: quality);
+
+                if (processedImage?.Length > 0) {
+                    var fileName = GetAttachmentFileName(imageData.ImagePath);
+                    builder.Attachments.Add(fileName, processedImage.ToArray(), new MimeKit.ContentType("image", "jpeg"));
+                }
+            } catch (Exception ex) {
+                global::NINA.Core.Utility.Logger.Error($"SendToEmail: Failed to attach processed image: {ex.Message}");
+            }
+        }
+
+        private static string GetAttachmentFileName(string imagePath) {
+            if (string.IsNullOrEmpty(imagePath)) {
+                return "image.jpg";
+            }
+
+            return System.IO.Path.GetFileNameWithoutExtension(imagePath) + ".jpg";
         }
 
         public IList<string> Issues { get; set; } = new ObservableCollection<string>();
