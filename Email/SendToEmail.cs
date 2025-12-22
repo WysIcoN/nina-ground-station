@@ -185,7 +185,27 @@ namespace DaleGhent.NINA.GroundStation.SendToEmail {
             message.From.Add(MailboxAddress.Parse(GroundStation.GroundStationConfig.SmtpFromAddress));
             message.To.AddRange(InternetAddressList.Parse(Recipient));
             message.Subject = Utilities.Utilities.ResolveTokens(Subject, this, metadata);
-            message.Body = new TextPart("plain") { Text = Utilities.Utilities.ResolveTokens(Body, this, metadata) };
+
+            var builder = new BodyBuilder();
+            builder.TextBody = Utilities.Utilities.ResolveTokens(Body, this, metadata);
+
+            try {
+                var img = DaleGhent.NINA.GroundStation.Images.ImageService.Instance.Image;
+                if (img?.Bitmap != null) {
+                    // create processed JPEG: 8bpp, downscale 8x, use configured JPEG quality
+                    var quality = GroundStation.GroundStationConfig.ImageServiceJpegQuality;
+                    using var processed = DaleGhent.NINA.GroundStation.Images.ImageProcessing.ConvertToJpegReduced(img.Bitmap, 8, quality);
+                    if (processed != null && processed.Length > 0) {
+                        processed.Position = 0;
+                        var fileName = string.IsNullOrEmpty(img.ImagePath) ? "image.jpg" : System.IO.Path.GetFileNameWithoutExtension(img.ImagePath) + ".jpg";
+                        builder.Attachments.Add(fileName, processed.ToArray(), new MimeKit.ContentType("image", "jpeg"));
+                    }
+                }
+            } catch (System.Exception ex) {
+                global::NINA.Core.Utility.Logger.Error($"SendToEmail: failed to attach processed image: {ex.Message}");
+            }
+
+            message.Body = builder.ToMessageBody();
 
             await EmailCommon.SendEmail(message, ct);
         }

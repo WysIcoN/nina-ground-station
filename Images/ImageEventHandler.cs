@@ -97,7 +97,7 @@ namespace DaleGhent.NINA.GroundStation.Images {
                 }
 
                 var ImageData = new ImageData() {
-                    Bitmap = memoryStream,
+                    Bitmap = new System.IO.MemoryStream(memoryStream.ToArray()),
                     ImageMetaData = msg.MetaData,
                     ImageMimeType = contentType,
                     ImageFileExtension = fileExtension,

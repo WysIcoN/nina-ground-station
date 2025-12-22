@@ -55,14 +55,24 @@ namespace DaleGhent.NINA.GroundStation.Images {
             }
 
             set {
+                ImageData? previous = null;
+
                 lock (imageLock) {
+                    previous = image;
                     image = value;
 
-                    var imageTypeTarget = new ImageTypeTarget(image.ImageMetaData.Image.ImageType.ToString(), image.ImageMetaData.Target.Name.ToString());
-                    ImageTypeCounter[imageTypeTarget] = !ImageTypeCounter.TryGetValue(imageTypeTarget, out int count) ? 1 : ImageTypeCounter[imageTypeTarget] + 1;
+                    try {
+                        var imageTypeTarget = new ImageTypeTarget(image.ImageMetaData.Image.ImageType.ToString(), image.ImageMetaData.Target.Name.ToString());
+                        ImageTypeCounter[imageTypeTarget] = !ImageTypeCounter.TryGetValue(imageTypeTarget, out int count) ? 1 : ImageTypeCounter[imageTypeTarget] + 1;
 
-                    Logger.Debug($"ImageService: Image set. {image.ImageFormat} size = {image.Bitmap.Length} bytes, Camera = {image.ImageMetaData.Camera.Name}");
+                        Logger.Debug($"ImageService: Image set. {image.ImageFormat} size = {image.Bitmap.Length} bytes, Camera = {image.ImageMetaData.Camera.Name}");
+                    } catch { /* swallow errors. keep setter robust */ }
                 }
+
+                // Dispose previous bitmap to free buffers promptly. Do this outside the lock to avoid long holds.
+                try {
+                    if (previous?.Bitmap != null) previous.Bitmap.Dispose();
+                } catch { /* ignore dispose errors */ }
 
                 ImageUpdatedEvent?.Invoke();
             }
