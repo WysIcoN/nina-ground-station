@@ -78,6 +78,13 @@ namespace DaleGhent.NINA.GroundStation.Images {
         }
 
         /// <summary>
+        /// Attempts to extract the exposure time in seconds from the image metadata.
+        /// </summary>
+        public double? GetExposureTime() {
+            return GetPropertyFromImageMetadata("ExposureTime", "Exposure", "ExposureDuration", "ShutterSpeed");
+        }
+
+        /// <summary>
         /// Safely extracts a numeric property from StarDetectionAnalysis using reflection.
         /// IStarDetectionAnalysis may have HFR directly accessible, or it may be in a nested
         /// structure depending on which plugins are active.
