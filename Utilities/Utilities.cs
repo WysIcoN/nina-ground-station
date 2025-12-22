@@ -290,7 +290,7 @@ namespace DaleGhent.NINA.GroundStation.Utilities {
                 text = pattern.Replace(text, DoUrlEncode(urlEncode, "----"));
             }
 
-            // Image metrics (HFR, Eccentricity, FWHM) and Guiding RMS values
+            // Image metrics (HFR, Eccentricity, FWHM), Exposure Time, and Guiding RMS values
             try {
                 var imageData = DaleGhent.NINA.GroundStation.Images.ImageService.Instance.Image;
                 if (imageData != null) {
@@ -304,12 +304,14 @@ namespace DaleGhent.NINA.GroundStation.Utilities {
                     text = text.Replace("$$IMAGE_HFR$$", FormatOrDash(metricsExtractor.GetHFR()));
                     text = text.Replace("$$IMAGE_ECCENTRICITY$$", FormatOrDash(metricsExtractor.GetEccentricity()));
                     text = text.Replace("$$IMAGE_FWHM$$", FormatOrDash(metricsExtractor.GetFWHM()));
-                    text = text.Replace("$$EXPOSURE_TIME$$", FormatOrDash(metricsExtractor.GetExposureTime()));
 
                     // Guiding RMS tokens
                     text = text.Replace("$$GUIDING_RMS_TOTAL$$", FormatOrDash(metricsExtractor.GetGuidingRmsTotal()));
                     text = text.Replace("$$GUIDING_RMS_DEC$$", FormatOrDash(metricsExtractor.GetGuidingRmsDec()));
                     text = text.Replace("$$GUIDING_RMS_RA$$", FormatOrDash(metricsExtractor.GetGuidingRmsRa()));
+
+                    // Exposure time token
+                    text = text.Replace("$$EXPOSURE_TIME$$", FormatOrDash(metricsExtractor.GetExposureTime()));
                 }
             } catch {
                 // ignore any errors and leave tokens untouched

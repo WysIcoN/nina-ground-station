@@ -21,11 +21,13 @@
   - **Failures to Telegram**: Messages are no longer sent with "Do not notify" on.
   - Fixed possible sound file permissions issue.
 
-## Unreleased - 2025-12-21
+## Unreleased - 2025-12-22
 * Added message tokens for image metrics and guiding RMS:
-  - `$$IMAGE_HFR$$` — image HFR (half flux radius), in arcseconds
+  - `$$IMAGE_HFR$$` — image HFR (half flux radius), in pixels
   - `$$IMAGE_FWHM$$` — image FWHM, in arcseconds
   - `$$IMAGE_ECCENTRICITY$$` — star eccentricity metric
+  - `$$IMAGE_PREVIEW` - A 1/8th resolution image
+  - `$$EXPOSURE_TIME$$` - exposure time, in seconds
   - `$$GUIDING_RMS_TOTAL$$`, `$$GUIDING_RMS_DEC$$`, `$$GUIDING_RMS_RA$$` — guiding RMS (total/DEC/RA)
 * Added these tokens to the Message Token Help tab UI.
 

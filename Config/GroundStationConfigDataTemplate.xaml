@@ -3060,6 +3060,8 @@
                                     <RowDefinition />
                                     <RowDefinition />
                                     <RowDefinition />
+                                    <RowDefinition />
+                                    <RowDefinition />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock
@@ -3153,6 +3155,34 @@
                                     Grid.Row="6"
                                     Grid.Column="1"
                                     Text="Guiding RMS in right ascension, in arcseconds." />
+
+                                <TextBox
+                                    Grid.Row="7"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    IsReadOnly="True"
+                                    util:SelectTextOnFocus.Active="True"
+                                    Text="$$EXPOSURE_TIME$$" />
+                                <TextBlock
+                                    Grid.Row="7"
+                                    Grid.Column="1"
+                                    Text="Exposure time in seconds." />
+
+                                <TextBox
+                                    Grid.Row="8"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    IsReadOnly="True"
+                                    util:SelectTextOnFocus.Active="True"
+                                    Text="$$IMAGE_PREVIEW$$" />
+                                <TextBlock
+                                    Grid.Row="8"
+                                    Grid.Column="1"
+                                    Text="A 1/8th resolution stretched preview image." />
 
                             </Grid>
                         </StackPanel>

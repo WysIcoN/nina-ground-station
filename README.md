@@ -20,12 +20,12 @@ Information about your session or any failures may be inserted into the messages
 
 New image- and guiding-related tokens have been added:
 
-- `$$IMAGE_HFR$$` — image HFR (half flux radius), in arcseconds
+- `$$IMAGE_HFR$$` — image HFR (half flux radius), in pixels
 - `$$IMAGE_FWHM$$` — image FWHM, in arcseconds
-- `$$IMAGE_ECCENTRICITY$$` — star eccentricity metric (unitless)
-- `$$GUIDING_RMS_TOTAL$$` — guiding RMS (total), in arcseconds
-- `$$GUIDING_RMS_DEC$$` — guiding RMS in declination, in arcseconds
-- `$$GUIDING_RMS_RA$$` — guiding RMS in right ascension, in arcseconds
+- `$$IMAGE_ECCENTRICITY$$` — star eccentricity metric
+- `$$IMAGE_PREVIEW` - A 1/8th resolution image
+- `$$EXPOSURE_TIME$$` - exposure time, in seconds
+- `$$GUIDING_RMS_TOTAL$$`, `$$GUIDING_RMS_DEC$$`, `$$GUIDING_RMS_RA$$` — guiding RMS (total/DEC/RA)
 
 ## Getting help
 

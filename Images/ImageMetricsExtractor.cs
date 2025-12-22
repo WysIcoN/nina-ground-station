@@ -17,9 +17,8 @@ namespace DaleGhent.NINA.GroundStation.Images {
     /// <summary>
     /// Extracts image metrics (HFR, FWHM, Eccentricity) and guiding RMS values from image data.
     /// This class acts as a centralized adapter for safely accessing metrics from NINA's
-    /// IStarDetectionAnalysis and ImageMetaData. While some reflection is necessary for
-    /// plugin-specific properties, this class encapsulates that logic in focused methods
-    /// rather than spreading it throughout the codebase.
+    /// IStarDetectionAnalysis and ImageMetaData. Reflection is only used for FWHM and Eccentricity
+    /// as the interface IStarDetectionAnalysis does not expose them directly.
     /// </summary>
     internal class ImageMetricsExtractor {
         private readonly ImageData imageData;
@@ -33,13 +32,20 @@ namespace DaleGhent.NINA.GroundStation.Images {
         /// Attempts to extract HFR (Half-Flux Radius) value from the star detection analysis.
         /// </summary>
         public double? GetHFR() {
-            return GetPropertyFromStarDetectionAnalysis("HFR");
+            return imageData?.StarDetectionAnalysis == null ? 0.0 : imageData.StarDetectionAnalysis.HFR;
         }
 
         /// <summary>
         /// Attempts to extract Eccentricity value from the star detection analysis.
         /// </summary>
         public double? GetEccentricity() {
+            var sda = imageData?.StarDetectionAnalysis;
+            
+            if (sda == null) {
+                // Hocus Focus is not active.
+                return null;
+            }
+
             return GetPropertyFromStarDetectionAnalysis("Eccentricity");
         }
 
@@ -49,8 +55,14 @@ namespace DaleGhent.NINA.GroundStation.Images {
         /// Tries multiple common property name variants and nested locations.
         /// </summary>
         public double? GetFWHM() {
-            // Try common FWHM property names, including Hocus Focus variants
-            return GetPropertyFromImageMetadata("FWHM", "FocuserFWHM", "HocusFocusFWHM", "StarFWHM", "FocusValue", "Focus_Value");
+            var sda = imageData?.StarDetectionAnalysis;
+            
+            if (sda == null) {
+                // Hocus Focus is not active.
+                return null;
+            }
+
+            return GetPropertyFromStarDetectionAnalysis("FWHM");
         }
 
         /// <summary>
@@ -58,7 +70,7 @@ namespace DaleGhent.NINA.GroundStation.Images {
         /// variants as different guiding plugins may use different naming conventions.
         /// </summary>
         public double? GetGuidingRmsTotal() {
-            return GetPropertyFromImageMetadata("GuidingRmsTotal", "GuidingRms_Total", "GuidingRmsTot", "GuidingRMS_Tot", "GuidingRMS", "GuidingRms");
+            return imageData?.ImageMetaData == null ? 0.0 : imageData.ImageMetaData.Image.RecordedRMS.Total * imageData.ImageMetaData.Image.RecordedRMS.Scale;
         }
 
         /// <summary>
@@ -66,7 +78,7 @@ namespace DaleGhent.NINA.GroundStation.Images {
         /// name variants as different guiding plugins may use different naming conventions.
         /// </summary>
         public double? GetGuidingRmsDec() {
-            return GetPropertyFromImageMetadata("GuidingRmsDec", "GuidingRMS_Dec", "GuidingDecRms", "GuidingRms_Dec", "GuidingRMSDec");
+            return imageData?.ImageMetaData == null ? 0.0 : imageData.ImageMetaData.Image.RecordedRMS.Dec * imageData.ImageMetaData.Image.RecordedRMS.Scale;
         }
 
         /// <summary>
@@ -74,22 +86,22 @@ namespace DaleGhent.NINA.GroundStation.Images {
         /// name variants as different guiding plugins may use different naming conventions.
         /// </summary>
         public double? GetGuidingRmsRa() {
-            return GetPropertyFromImageMetadata("GuidingRmsRa", "GuidingRMS_RA", "GuidingRaRms", "GuidingRms_RA", "GuidingRMSRa");
+            return imageData?.ImageMetaData == null ? 0.0 : imageData.ImageMetaData.Image.RecordedRMS.RA * imageData.ImageMetaData.Image.RecordedRMS.Scale;
         }
 
         /// <summary>
         /// Attempts to extract the exposure time in seconds from the image metadata.
         /// </summary>
         public double? GetExposureTime() {
-            return GetPropertyFromImageMetadata("ExposureTime", "Exposure", "ExposureDuration", "ShutterSpeed");
+            return imageData?.ImageMetaData == null ? 0.0 : imageData.ImageMetaData.Image.ExposureTime;
         }
 
         /// <summary>
         /// Safely extracts a numeric property from StarDetectionAnalysis using reflection.
-        /// IStarDetectionAnalysis may have HFR directly accessible, or it may be in a nested
-        /// structure depending on which plugins are active.
+        /// IStarDetectionAnalysis does not have FWHM and Eccentricity properties directly, so we use
+        /// reflection to attempt to access these properties.
         /// </summary>
-        private double? GetPropertyFromStarDetectionAnalysis(params string[] propertyNames) {
+        private double? GetPropertyFromStarDetectionAnalysis(string propertyName) {
             if (imageData?.StarDetectionAnalysis == null) {
                 return null;
             }
@@ -98,131 +110,16 @@ namespace DaleGhent.NINA.GroundStation.Images {
             var sdaType = sda.GetType();
 
             // First, try direct properties on the IStarDetectionAnalysis object
-            foreach (var propName in propertyNames) {
-                try {
-                    var prop = sdaType.GetProperty(propName, PropertyLookupFlags);
-                    if (prop != null && prop.CanRead) {
-                        var value = prop.GetValue(sda);
-                        if (TryConvertToDouble(value, out var result) && !double.IsNaN(result)) {
-                            return result;
-                        }
-                    }
-                } catch {
-                    // Property doesn't exist or couldn't be accessed, try next
-                }
-            }
-
-            // If not found directly, search nested properties (some plugins wrap analysis data)
             try {
-                foreach (var prop in sdaType.GetProperties(PropertyLookupFlags)) {
-                    try {
-                        if (!prop.CanRead) continue;
-
-                        var containerObj = prop.GetValue(sda);
-                        if (containerObj == null) continue;
-
-                        var containerType = containerObj.GetType();
-                        foreach (var propName in propertyNames) {
-                            var nestedProp = containerType.GetProperty(propName, PropertyLookupFlags);
-                            if (nestedProp != null && nestedProp.CanRead) {
-                                var value = nestedProp.GetValue(containerObj);
-                                if (TryConvertToDouble(value, out var result) && !double.IsNaN(result)) {
-                                    return result;
-                                }
-                            }
-                        }
-                    } catch {
-                        // Continue to next property
+                var prop = sdaType.GetProperty(propertyName, PropertyLookupFlags);
+                if (prop != null && prop.CanRead) {
+                    var value = prop.GetValue(sda);
+                    if (TryConvertToDouble(value, out var result) && !double.IsNaN(result)) {
+                        return result;
                     }
                 }
             } catch {
-                // Ignore any errors during nested search
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Safely extracts a numeric property from ImageMetaData using reflection.
-        /// Tries direct property access first, then searches one level deep in nested
-        /// properties (for plugin containers like Hocus Focus).
-        /// </summary>
-        private double? GetPropertyFromImageMetadata(params string[] propertyNames) {
-            if (imageData?.ImageMetaData == null) {
-                return null;
-            }
-
-            // Try direct property access first
-            foreach (var propName in propertyNames) {
-                try {
-                    var prop = imageData.ImageMetaData.GetType().GetProperty(
-                        propName,
-                        PropertyLookupFlags);
-
-                    if (prop != null && prop.CanRead) {
-                        var value = prop.GetValue(imageData.ImageMetaData);
-                        if (TryConvertToDouble(value, out var result) && !double.IsNaN(result)) {
-                            return result;
-                        }
-                    }
-                } catch {
-                    // Property doesn't exist or couldn't be accessed, continue to next variant
-                }
-            }
-
-            // Search one level deep in nested properties (e.g., plugin containers)
-            try {
-                foreach (var prop in imageData.ImageMetaData.GetType().GetProperties(PropertyLookupFlags)) {
-                    try {
-                        if (!prop.CanRead) continue;
-
-                        var containerObj = prop.GetValue(imageData.ImageMetaData);
-                        if (containerObj == null) continue;
-
-                        // Search for the property within this container
-                        var containerType = containerObj.GetType();
-                        foreach (var propName in propertyNames) {
-                            var nestedProp = containerType.GetProperty(
-                                propName,
-                                PropertyLookupFlags);
-
-                            if (nestedProp != null && nestedProp.CanRead) {
-                                var value = nestedProp.GetValue(containerObj);
-                                if (TryConvertToDouble(value, out var result) && !double.IsNaN(result)) {
-                                    return result;
-                                }
-                            }
-                        }
-
-                        // For Hocus Focus specifically, also search two levels deep if this looks like a plugin container
-                        if (containerType.Name.Contains("Focus") || containerType.Name.Contains("Hocus") || containerType.Namespace?.Contains("Focus") == true) {
-                            foreach (var subProp in containerType.GetProperties(PropertyLookupFlags)) {
-                                try {
-                                    if (!subProp.CanRead) continue;
-                                    var subObj = subProp.GetValue(containerObj);
-                                    if (subObj == null) continue;
-
-                                    var subType = subObj.GetType();
-                                    foreach (var propName in propertyNames) {
-                                        var deepProp = subType.GetProperty(propName, PropertyLookupFlags);
-                                        if (deepProp != null && deepProp.CanRead) {
-                                            var value = deepProp.GetValue(subObj);
-                                            if (TryConvertToDouble(value, out var result) && !double.IsNaN(result)) {
-                                                return result;
-                                            }
-                                        }
-                                    }
-                                } catch {
-                                    // Continue searching
-                                }
-                            }
-                        }
-                    } catch {
-                        // Continue to next container property
-                    }
-                }
-            } catch {
-                // Ignore any errors during nested property search
+                // Property doesn't exist or couldn't be accessed, try next
             }
 
             return null;
