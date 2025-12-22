@@ -181,6 +181,11 @@ namespace DaleGhent.NINA.GroundStation.SendToEmail {
         }
 
         public override async Task Execute(IProgress<ApplicationStatus> progress, CancellationToken ct) {
+            // Wait for ImageEventHandler to complete processing and update the image in ImageService.
+            // ImageEventHandler is async void, so it returns immediately without waiting.
+            // We poll for the image to change before proceeding, with a timeout for robustness.
+            await WaitForImageUpdate(ct);
+
             var message = new MimeMessage();
             message.From.Add(MailboxAddress.Parse(GroundStation.GroundStationConfig.SmtpFromAddress));
             message.To.AddRange(InternetAddressList.Parse(Recipient));
@@ -201,6 +206,35 @@ namespace DaleGhent.NINA.GroundStation.SendToEmail {
 
             await EmailCommon.SendEmail(message, ct);
         }
+
+        private async Task WaitForImageUpdate(CancellationToken ct) {
+            const int pollIntervalMs = 20;
+            const int timeoutMs = 5000;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            // Capture the initial state
+            var imageService = DaleGhent.NINA.GroundStation.Images.ImageService.Instance;
+            var initialImage = imageService.Image;
+            var initialLength = initialImage?.Bitmap?.Length ?? 0;
+            var initialPath = initialImage?.ImagePath ?? string.Empty;
+
+            // Poll until the image changes or we timeout
+            while (sw.ElapsedMilliseconds < timeoutMs) {
+                await Task.Delay(pollIntervalMs, ct);
+
+                var currentImage = imageService.Image;
+                var currentLength = currentImage?.Bitmap?.Length ?? 0;
+                var currentPath = currentImage?.ImagePath ?? string.Empty;
+
+                // Check if image has been updated (either size or path changed)
+                if (currentLength != initialLength || currentPath != initialPath) {
+                    return; // Image has been updated
+                }
+            }
+
+            // Timeout reached, but proceed anyway - image might still be processing
+        }
+
 
         private void AttachProcessedImage(BodyBuilder builder) {
             try {
