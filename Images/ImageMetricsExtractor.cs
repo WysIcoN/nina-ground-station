@@ -37,6 +37,7 @@ namespace DaleGhent.NINA.GroundStation.Images {
 
         /// <summary>
         /// Attempts to extract Eccentricity value from the star detection analysis.
+        /// NOTE that the Hocus Focus plugin must be active for this value to be available.
         /// </summary>
         public double? GetEccentricity() {
             var sda = imageData?.StarDetectionAnalysis;
@@ -50,9 +51,8 @@ namespace DaleGhent.NINA.GroundStation.Images {
         }
 
         /// <summary>
-        /// Attempts to extract FWHM (Full Width at Half Maximum) value. FWHM typically comes from
-        /// the Hocus Focus plugin which stores it in ImageMetaData or in a nested HocusFocus property.
-        /// Tries multiple common property name variants and nested locations.
+        /// Attempts to extract FWHM (Full Width at Half Maximum) value.
+        /// NOTE that the Hocus Focus plugin must be active for this value to be available.
         /// </summary>
         public double? GetFWHM() {
             var sda = imageData?.StarDetectionAnalysis;
@@ -109,47 +109,20 @@ namespace DaleGhent.NINA.GroundStation.Images {
             var sda = imageData.StarDetectionAnalysis;
             var sdaType = sda.GetType();
 
-            // First, try direct properties on the IStarDetectionAnalysis object
             try {
                 var prop = sdaType.GetProperty(propertyName, PropertyLookupFlags);
                 if (prop != null && prop.CanRead) {
                     var value = prop.GetValue(sda);
-                    if (TryConvertToDouble(value, out var result) && !double.IsNaN(result)) {
+                    var result = Convert.ToDouble(value);
+                    if (!double.IsNaN(result)) {
                         return result;
                     }
                 }
             } catch {
-                // Property doesn't exist or couldn't be accessed, try next
+                // Property doesn't exist or couldn't be accessed
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Safely converts a value to double, handling various numeric types.
-        /// </summary>
-        private static bool TryConvertToDouble(object value, out double result) {
-            result = double.NaN;
-            
-            if (value == null) {
-                return false;
-            }
-
-            try {
-                result = value switch {
-                    double d => d,
-                    float f => (double)f,
-                    int i => (double)i,
-                    decimal m => (double)m,
-                    long l => (double)l,
-                    short s => (double)s,
-                    byte b => (double)b,
-                    _ => double.NaN
-                };
-                return !double.IsNaN(result);
-            } catch {
-                return false;
-            }
         }
     }
 }
